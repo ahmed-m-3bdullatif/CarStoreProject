@@ -75,10 +75,21 @@ WSGI_APPLICATION = 'CarStore.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    "default": dj_database_url.parse(
-        "postgresql://postgres:zYPZqkeabiOYhfcaVXVhITZOfUmosGFh@zephyr.proxy.rlwy.net:13275/railway"
-    )
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "CarStore",
+        "USER": "postgres",
+        "PASSWORD": "Mountain&Rose",
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
+    }
 }
+
+# DATABASES = {
+#     "default": dj_database_url.parse(
+#         "postgresql://postgres:zYPZqkeabiOYhfcaVXVhITZOfUmosGFh@zephyr.proxy.rlwy.net:13275/railway"
+#     )
+# }
 
 
 # Password validation

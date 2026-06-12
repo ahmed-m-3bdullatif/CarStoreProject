@@ -6,7 +6,6 @@ import datetime
 
 # Validators & Normalizers
 
-
 def validate_not_future_date(value):
     """Ensures the date is not in the future."""
     if value > datetime.date.today():
@@ -47,11 +46,8 @@ def validate_positive_price(value):
 
 # Database Models
 
-
-# noinspection PyTypeChecker
 class StoreSettings(models.Model):
     """Store Profile and System Configuration """
-
     class StockNumberMode(models.IntegerChoices):
         MANUAL = 1, 'Manual'
         AUTO = 2, 'Automatic'
@@ -140,7 +136,7 @@ class CarInventory(models.Model):
 
 
 class Repair(models.Model):
-    """Car Repairs and Service Logs"""
+    """Car Repairs Logs"""
     car = models.ForeignKey(CarInventory, on_delete=models.CASCADE, related_name='repairs')
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[validate_positive_price])
@@ -182,4 +178,4 @@ class Sale(models.Model):
         super(Sale, self).save(*args, **kwargs)
 
     def __str__(self):
-        return f"Invoice for Car: {self.car.stock_number} sold to {self.client}"
+        return f"Invoice for Car: {self.car} sold to {self.client}"

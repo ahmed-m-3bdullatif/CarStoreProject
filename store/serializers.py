@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError
 from .models import StoreSettings, Client, CarInventory, Repair, Sale
+from datetime import date
 
 
 # ==========================================
@@ -12,14 +13,7 @@ class StoreSettingsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StoreSettings
-        fields = [
-            'id',
-            'name',
-            'address',
-            'stock_number_mode',
-            'stock_number_mode_display',
-            'stock_number_start_value'
-        ]
+        fields = ['id', 'name', 'address', 'stock_number_mode', 'stock_number_mode_display', 'stock_number_start_value']
 
 
 # ==========================================
@@ -37,8 +31,12 @@ class RepairSerializer(serializers.ModelSerializer):
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
-        fields = ['id', 'first_name', 'last_name', 'license_number', 'license_expiration_date', 'date_of_birth']
+        fields = '__all__'
 
+    def validate_license_expiration_date(self, value):
+        if value and value < date.today():
+            raise serializers.ValidationError("The license expiration date cannot be in the past.")
+        return value
 
 # ==========================================
 # 4. Car Inventory Serializer
@@ -46,7 +44,6 @@ class ClientSerializer(serializers.ModelSerializer):
 class CarInventorySerializer(serializers.ModelSerializer):
     repairs = RepairSerializer(many=True, read_only=True)
 
-    # تعديل الحقل هنا ليكون مرن ومقبول في الحالتين على مستوى الـ API
     stock_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
