@@ -3,9 +3,9 @@ db.sqlite3
 # Ignore the .env file which may contain sensitive information
 .env
 # Ignore the __pycache__ directory which contains compiled Python files
-__pycache__/
+store/__pycache__/
 # Ignore the migrations directory which contains database migration files
-migrations/
+store/migrations/
 # Ignore the staticfiles directory which contains collected static files
 staticfiles/
 # Ignore the media directory which may contain user-uploaded files

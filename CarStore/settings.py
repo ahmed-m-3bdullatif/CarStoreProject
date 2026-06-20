@@ -49,6 +49,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    
 ]
 
 ROOT_URLCONF = 'CarStore.urls'
@@ -99,16 +100,14 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
-    # [تعديل اختياري] لو عايز تقفل كل الـ Endpoints تلقائياً وما تفتحش غير اللي تطلب بـ AllowAny
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ]
 }
 
-# إعدادات الـ JWT (وقت صلاحية التوكن)
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  # التوكن يفضل شغال لمدة يوم (تقدر تغيرها)
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7), # توكن التجديد يفضل شغال 7 أيام
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30), 
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
