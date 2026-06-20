@@ -22,6 +22,11 @@ from .serializers import (
     SaleDetailSerializer
 )
 
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
+from django.contrib.auth.models import User
+from .serializers import RegisterSerializer
+
 
 # ==========================================
 # 1. Store Settings ViewZone
@@ -204,3 +209,9 @@ class SaleViewSet(viewsets.ModelViewSet):
         except FileNotFoundError:
             return Response({"error": "PDF Template file not found on server."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = (AllowAny,)
+    serializer_class = RegisterSerializer
+

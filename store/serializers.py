@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.core.exceptions import ValidationError
 from .models import StoreSettings, Client, CarInventory, Repair, Sale
 from datetime import date
+from django.contrib.auth.models import User
 
 
 # ==========================================
@@ -121,3 +122,23 @@ class SaleDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sale
         fields = ['id', 'car', 'client', 'price', 'date']
+
+# ==========================================
+# 7. Register Serializer
+# ==========================================
+class RegisterSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ('username', 'password', 'email', 'first_name', 'last_name')
+
+    def create(self, validated_data):
+        user = User.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data.get('email', ''),
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
+        return user
