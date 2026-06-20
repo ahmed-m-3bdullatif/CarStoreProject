@@ -12,3 +12,6 @@ staticfiles/
 media/
 # Ignore the .vscode directory which contains Visual Studio Code settings
 .vscode/
+# Ignore Pipfile and Pipfile.lock which are used for dependency management
+Pipfile
+Pipfile.lock
