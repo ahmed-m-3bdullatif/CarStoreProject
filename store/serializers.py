@@ -1,8 +1,9 @@
 from rest_framework import serializers
-from django.core.exceptions import ValidationError
-from .models import StoreSettings, Client, CarInventory, Repair, Sale
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
+from .models import *
 from datetime import date
 from django.contrib.auth.models import User
+
 
 
 # ==========================================
@@ -92,22 +93,21 @@ class CarInventorySerializer(serializers.ModelSerializer):
 class SaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sale
-        fields = ['id', 'car', 'client', 'price', 'date']
+        fields = '__all__'
 
     def validate(self, attrs):
-        """
-        Triggers the model's clean() method to return business logic errors
-        (e.g., expired license or already sold car) as a 400 Bad Request
-        to the frontend, instead of causing a 500 Server Error.
-        """
-        # Create a temporary unsaved instance to run model-level validation
-        instance = Sale(**attrs)
-        try:
-            instance.clean()
-        except ValidationError as e:
-            raise serializers.ValidationError(
-                e.message_dict if hasattr(e, 'message_dict') else e.messages
-            )
+        car = attrs.get('car')
+        
+        if car:
+            if not car.in_stock:
+                try:
+                    if self.instance and self.instance.car == car:
+                        return attrs
+                except ObjectDoesNotExist:
+                    pass
+                
+                raise serializers.ValidationError({"car": "This car is already sold."})
+        
         return attrs
 
 

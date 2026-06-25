@@ -1,16 +1,20 @@
 import io
 
 from django.db import transaction
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import FileResponse
+from django.contrib.auth.models import User
+
 
 from num2words import num2words
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import NameObject, NumberObject
 
-from rest_framework import viewsets, status, filters
+from rest_framework import viewsets, status, filters, generics
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 
 from .models import StoreSettings, Client, CarInventory, Repair, Sale
 from .serializers import (
@@ -19,13 +23,10 @@ from .serializers import (
     CarInventorySerializer,
     RepairSerializer,
     SaleSerializer,
-    SaleDetailSerializer
+    SaleDetailSerializer,
+    RegisterSerializer
 )
 
-from rest_framework import generics
-from rest_framework.permissions import AllowAny
-from django.contrib.auth.models import User
-from .serializers import RegisterSerializer
 
 
 # ==========================================
@@ -121,25 +122,8 @@ class RepairViewSet(viewsets.ModelViewSet):
 # 5. Sale ViewZone (Updated with Car/Client Filter & Auto-Sold Logic)
 # ==========================================
 class SaleViewSet(viewsets.ModelViewSet):
-    """Endpoints for Sales Transactions with Filters and Auto-stock Update"""
-    queryset = Sale.objects.all().order_by('-date')
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        car_id = self.request.query_params.get('car_id', None)
-        client_id = self.request.query_params.get('client_id', None)
-
-        if car_id is not None:
-            queryset = queryset.filter(car_id=car_id)
-        if client_id is not None:
-            queryset = queryset.filter(client_id=client_id)
-
-        return queryset
-
-    def get_serializer_class(self):
-        if self.action in ['list', 'retrieve']:
-            return SaleDetailSerializer
-        return SaleSerializer
+    queryset = Sale.objects.all()
+    serializer_class = SaleSerializer
 
     def perform_create(self, serializer):
         with transaction.atomic():
@@ -147,13 +131,47 @@ class SaleViewSet(viewsets.ModelViewSet):
             try:
                 car = CarInventory.objects.get(pk=car_id)
                 if not car.in_stock:
-                    raise DRFValidationError({"car": "This car has already been sold and is no longer available."})
+                    raise DRFValidationError({"car": "This car has already been sold."})
             except CarInventory.DoesNotExist:
                 raise DRFValidationError({"car": "Invalid car ID provided."})
 
             sale = serializer.save()
             car.in_stock = False
             car.save()
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            instance = serializer.instance
+            
+            try:
+                old_car = instance.car
+            except ObjectDoesNotExist:
+                old_car = None
+
+            updated_instance = serializer.save()
+
+            try:
+                new_car = updated_instance.car
+            except ObjectDoesNotExist:
+                new_car = None
+
+            if old_car != new_car:
+                if old_car:
+                    old_car.in_stock = True
+                    old_car.save()
+                
+                if new_car:
+                    new_car.in_stock = False
+                    new_car.save()
+
+    def perform_destroy(self, instance):
+        with transaction.atomic():
+            car = getattr(instance, 'car', None)
+            if car:
+                car.in_stock = True
+                car.save()
+            
+            instance.delete()
 
     @action(detail=True, methods=['get'], url_path='download_fillable_pdf')
     def download_fillable_pdf(self, request, pk=None):
