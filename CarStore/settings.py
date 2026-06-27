@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'drf_spectacular',
     'store',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
@@ -77,22 +78,22 @@ WSGI_APPLICATION = 'CarStore.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "CarStore",
-        "USER": "postgres",
-        "PASSWORD": "Mountain&Rose",
-        "HOST": "127.0.0.1",
-        "PORT": "5432",
-    }
-}
-
 # DATABASES = {
-#     "default": dj_database_url.parse(
-#         "postgresql://postgres:zYPZqkeabiOYhfcaVXVhITZOfUmosGFh@zephyr.proxy.rlwy.net:13275/railway"
-#     )
+#     "default": {
+#         "ENGINE": "django.db.backends.postgresql",
+#         "NAME": "CarStore",
+#         "USER": "postgres",
+#         "PASSWORD": "Mountain&Rose",
+#         "HOST": "127.0.0.1",
+#         "PORT": "5432",
+#     }
 # }
+
+DATABASES = {
+    "default": dj_database_url.parse(
+        "postgresql://postgres:zYPZqkeabiOYhfcaVXVhITZOfUmosGFh@zephyr.proxy.rlwy.net:13275/railway"
+    )
+}
 
 
 # Password validation
@@ -153,3 +154,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+CORS_ALLOWED_ORIGINS =[
+    "http://localhost:5173",
+    "http://127.0.0.1:5173"
+]
