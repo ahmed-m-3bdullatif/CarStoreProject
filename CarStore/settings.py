@@ -56,10 +56,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'CarStore.wsgi.application'
 
-# Database - PostgreSQL connection via Railway
+# Database 
 DATABASES = {
     "default": dj_database_url.parse(
-        "postgresql://postgres:zYPZqkeabiOYhfcaVXVhITZOfUmosGFh@zephyr.proxy.rlwy.net:13275/railway"
+        "postgresql://postgres.dzejodphcuuzmdeswyuw:TeFa%2601227539483@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
     )
 }
 
