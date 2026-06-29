@@ -5,12 +5,9 @@ from datetime import date
 from django.contrib.auth.models import User
 
 
+# ==================== 1. Store Settings ====================
 
-# ==========================================
-# 1. Store Settings Serializer
-# ==========================================
 class StoreSettingsSerializer(serializers.ModelSerializer):
-    # Read-only field to display the string label of the enum (Manual/Automatic)
     stock_number_mode_display = serializers.CharField(source='get_stock_number_mode_display', read_only=True)
 
     class Meta:
@@ -18,18 +15,16 @@ class StoreSettingsSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'address', 'stock_number_mode', 'stock_number_mode_display', 'stock_number_start_value']
 
 
-# ==========================================
-# 2. Repair Serializer
-# ==========================================
+# ==================== 2. Repairs ====================
+
 class RepairSerializer(serializers.ModelSerializer):
     class Meta:
         model = Repair
         fields = ['id', 'car', 'name', 'price', 'date', 'notes']
 
 
-# ==========================================
-# 3. Client Serializer
-# ==========================================
+# ==================== 3. Clients ====================
+
 class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
@@ -40,12 +35,11 @@ class ClientSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("The license expiration date cannot be in the past.")
         return value
 
-# ==========================================
-# 4. Car Inventory Serializer
-# ==========================================
+
+# ==================== 4. Car Inventory ====================
+
 class CarInventorySerializer(serializers.ModelSerializer):
     repairs = RepairSerializer(many=True, read_only=True)
-
     stock_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
@@ -53,14 +47,9 @@ class CarInventorySerializer(serializers.ModelSerializer):
         fields = ['id', 'stock_number', 'vin_number', 'year', 'make', 'model', 'in_stock', 'repairs']
 
     def validate(self, attrs):
-        """
-        Validates data and gracefully catches Model ValidationError
-        to return a 400 Bad Request instead of a 500 Server Error.
-        """
         config = StoreSettings.objects.get_or_create(pk=1)[0]
         stock_number = attrs.get('stock_number')
 
-        # API-level check for Manual mode before reaching the Model
         if config.stock_number_mode == StoreSettings.StockNumberMode.MANUAL:
             if not stock_number or stock_number.strip() == "":
                 raise serializers.ValidationError(
@@ -69,7 +58,6 @@ class CarInventorySerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Catches any validation errors during actual model instantiation."""
         try:
             return super().create(validated_data)
         except ValidationError as e:
@@ -78,7 +66,6 @@ class CarInventorySerializer(serializers.ModelSerializer):
             )
 
     def update(self, instance, validated_data):
-        """Catches any validation errors during actual model updates."""
         try:
             return super().update(instance, validated_data)
         except ValidationError as e:
@@ -87,9 +74,8 @@ class CarInventorySerializer(serializers.ModelSerializer):
             )
 
 
-# ==========================================
-# 5. Sale Serializer (For POST/PUT Operations)
-# ==========================================
+# ==================== 5. Sale (Write) ====================
+
 class SaleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sale
@@ -97,7 +83,6 @@ class SaleSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         car = attrs.get('car')
-        
         if car:
             if not car.in_stock:
                 try:
@@ -105,17 +90,14 @@ class SaleSerializer(serializers.ModelSerializer):
                         return attrs
                 except ObjectDoesNotExist:
                     pass
-                
                 raise serializers.ValidationError({"car": "This car is already sold."})
-        
         return attrs
 
 
-# ==========================================
-# 6. Detailed Sale Serializer (For GET Operations Only)
-# ==========================================
+# ==================== 6. Sale Detail (Read-Only) ====================
+
 class SaleDetailSerializer(serializers.ModelSerializer):
-    """Custom serializer to expand car and client details dynamically for invoice views."""
+    """Expands car and client details for invoice views"""
     car = CarInventorySerializer(read_only=True)
     client = ClientSerializer(read_only=True)
 
@@ -123,9 +105,9 @@ class SaleDetailSerializer(serializers.ModelSerializer):
         model = Sale
         fields = ['id', 'car', 'client', 'price', 'date']
 
-# ==========================================
-# 7. Register Serializer
-# ==========================================
+
+# ==================== 7. Auth - Register ====================
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 

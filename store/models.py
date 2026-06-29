@@ -3,8 +3,7 @@ from django.core.exceptions import ValidationError
 import datetime
 
 
-
-# Validators & Normalizers
+# ==================== Validators ====================
 
 def validate_not_future_date(value):
     """Ensures the date is not in the future."""
@@ -44,7 +43,7 @@ def validate_positive_price(value):
         raise ValidationError("The price must be greater than zero!")
 
 
-# Database Models
+# ==================== Database Models ====================
 
 class StoreSettings(models.Model):
     """Store Profile and System Configuration """
@@ -64,7 +63,7 @@ class StoreSettings(models.Model):
     def save(self, *args, **kwargs):
         if self.stock_number_start_value < 1:
             raise ValidationError("The starting value for stock number must be 1 or greater.")
-        self.pk = 1  # Enforces that only one row can exist in the database for settings
+        self.pk = 1  # Force single-row table (singleton pattern)
         super(StoreSettings, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -80,13 +79,12 @@ class Client(models.Model):
     date_of_birth = models.DateField(validators=[validate_client_age])
 
     def clean(self):
-        """Checks if the driving license is valid upon registration."""
         if self.license_expiration_date and self.license_expiration_date < datetime.date.today():
             raise ValidationError(
                 {"license_expiration_date": "Cannot register a client with an expired driving license!"})
 
     def save(self, *args, **kwargs):
-        self.full_clean()  # Forces full model validation before saving
+        self.full_clean()  # Validate before saving
         super(Client, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -103,12 +101,12 @@ class CarInventory(models.Model):
     in_stock = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
-        self.vin_number = self.vin_number.upper().strip()
+        self.vin_number = self.vin_number.upper().strip()  # Normalize VIN to uppercase
 
         config, created = StoreSettings.objects.get_or_create(pk=1)
 
         if config.stock_number_mode == StoreSettings.StockNumberMode.AUTO:
-            if not self.pk:
+            if not self.pk:  # Only auto-assign for new records
                 all_stocks = CarInventory.objects.exclude(stock_number__isnull=True).exclude(stock_number="")
 
                 db_highest_stock = 0
@@ -159,22 +157,16 @@ class Sale(models.Model):
     date = models.DateTimeField(auto_now_add=True)
 
     def clean(self):
-        # 1. Ensure the car is available for sale (Only on creation)
         if not self.pk and not self.car.in_stock:
             raise ValidationError("This car is already sold and no longer available!")
-
-        # 2. Ensure the client's driving license is valid at the time of purchase
         if self.client.license_expiration_date < datetime.date.today():
             raise ValidationError("Transaction denied! The client's driving license has expired.")
 
     def save(self, *args, **kwargs):
-        self.clean()  
-
+        self.clean()
         if not self.pk:
-            # Automate status change: flip in_stock to False immediately upon a successful sale
-            self.car.in_stock = False
+            self.car.in_stock = False  # Mark car as sold
             self.car.save()
-
         super(Sale, self).save(*args, **kwargs)
 
     def __str__(self):

@@ -17,3 +17,5 @@ media/
 Pipfile
 Pipfile.lock
 store/middleware.py
+
+.idea/

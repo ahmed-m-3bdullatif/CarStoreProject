@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 from num2words import num2words
 from pypdf import PdfReader, PdfWriter
 from pypdf.generic import NameObject, NumberObject
+from reportlab.pdfgen import canvas as rl_canvas
 
 from rest_framework import viewsets, status, filters, generics
 from rest_framework.decorators import action
@@ -28,10 +29,7 @@ from .serializers import (
 )
 
 
-
-# ==========================================
-# 1. Store Settings ViewZone
-# ==========================================
+# ==================== 1. Store Settings ====================
 class StoreSettingsViewSet(viewsets.GenericViewSet):
     """Endpoints for System Settings & Configuration"""
     queryset = StoreSettings.objects.filter(pk=1)
@@ -43,6 +41,7 @@ class StoreSettingsViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['get'], url_path='get_stock_mode')
     def get_stock_mode(self, request):
+        """Get current stock numbering mode (Manual/Automatic)"""
         config = self.get_object()
         return Response({
             "stock_number_mode": config.stock_number_mode,
@@ -51,6 +50,7 @@ class StoreSettingsViewSet(viewsets.GenericViewSet):
 
     @action(detail=False, methods=['put'], url_path='update_settings')
     def update_settings(self, request):
+        """Update store name, address, and stock config"""
         config = self.get_object()
         serializer = self.get_serializer(config, data=request.data, partial=False)
         if serializer.is_valid():
@@ -59,9 +59,7 @@ class StoreSettingsViewSet(viewsets.GenericViewSet):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ==========================================
-# 2. Car Inventory ViewZone (Updated with Search)
-# ==========================================
+# ==================== 2. Car Inventory ====================
 class CarInventoryViewSet(viewsets.ModelViewSet):
     """Endpoints for Cars with Built-in Search functionality"""
     queryset = CarInventory.objects.all().order_by('-id')
@@ -72,6 +70,7 @@ class CarInventoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='get_last_stock')
     def get_last_stock(self, request):
+        """Get the highest stock number from inventory"""
         all_stocks = CarInventory.objects.exclude(stock_number__isnull=True).exclude(stock_number="")
         db_highest_stock = 0
         for car in all_stocks:
@@ -85,14 +84,13 @@ class CarInventoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='get_available')
     def get_available(self, request):
+        """Get all cars currently in stock (not sold)"""
         available_cars = CarInventory.objects.filter(in_stock=True).order_by('-id')
         serializer = self.get_serializer(available_cars, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# ==========================================
-# 3. Client ViewZone (Updated with Search)
-# ==========================================
+# ==================== 3. Clients ====================
 class ClientViewSet(viewsets.ModelViewSet):
     """Endpoints for Clients with Search functionality"""
     queryset = Client.objects.all().order_by('-id')
@@ -102,9 +100,7 @@ class ClientViewSet(viewsets.ModelViewSet):
     search_fields = ['first_name', 'last_name', 'license_number']
 
 
-# ==========================================
-# 4. Repair ViewZone
-# ==========================================
+# ==================== 4. Repairs ====================
 class RepairViewSet(viewsets.ModelViewSet):
     """Endpoints for Car Repairs with Car Filter"""
     queryset = Repair.objects.all().order_by('-date')
@@ -118,10 +114,9 @@ class RepairViewSet(viewsets.ModelViewSet):
         return queryset
 
 
-# ==========================================
-# 5. Sale ViewZone (Updated with Car/Client Filter & Auto-Sold Logic)
-# ==========================================
+# ==================== 5. Sales ====================
 class SaleViewSet(viewsets.ModelViewSet):
+    """Sales with auto stock management"""
     queryset = Sale.objects.all()
     serializer_class = SaleSerializer
 
@@ -142,7 +137,7 @@ class SaleViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         with transaction.atomic():
             instance = serializer.instance
-            
+
             try:
                 old_car = instance.car
             except ObjectDoesNotExist:
@@ -159,7 +154,7 @@ class SaleViewSet(viewsets.ModelViewSet):
                 if old_car:
                     old_car.in_stock = True
                     old_car.save()
-                
+
                 if new_car:
                     new_car.in_stock = False
                     new_car.save()
@@ -170,11 +165,12 @@ class SaleViewSet(viewsets.ModelViewSet):
             if car:
                 car.in_stock = True
                 car.save()
-            
+
             instance.delete()
 
     @action(detail=True, methods=['get'], url_path='download_fillable_pdf')
     def download_fillable_pdf(self, request, pk=None):
+        """Generate and download a fillable PDF invoice for a sale"""
         try:
             sale = self.get_object()
             settings = StoreSettings.objects.get_or_create(pk=1)[0]
@@ -207,11 +203,35 @@ class SaleViewSet(viewsets.ModelViewSet):
 
             writer.update_page_form_field_values(writer.pages[0], form_data)
 
-            for field in writer.get_fields().values():
-                if '/Ff' in field:
-                    field.update({
-                        NameObject("/Ff"): NumberObject(field['/Ff'] | 1)
-                    })
+            # Build reportlab overlay with filled values, then remove form fields
+            page = writer.pages[0]
+            mbox = page.get("/MediaBox")
+            page_w = float(mbox[2])
+            page_h = float(mbox[3])
+            overlay_buf = io.BytesIO()
+            c = rl_canvas.Canvas(overlay_buf, pagesize=(page_w, page_h))
+
+            for annot_ref in page.get("/Annots"):
+                annot = annot_ref.get_object()
+                rect = annot.get("/Rect", [0, 0, 0, 0])
+                ft = annot.get("/FT", "")
+                value = annot.get("/V", None)
+                if ft == "/Sig" or not value or str(value).strip() == "":
+                    continue
+                llx, lly, _, _ = [float(x) for x in rect]
+                c.setFont("Helvetica", 9)
+                c.drawString(llx + 2, lly + 4, str(value))
+
+            c.showPage()
+            c.save()
+            overlay_buf.seek(0)
+
+            reader_overlay = PdfReader(overlay_buf)
+            page.merge_page(reader_overlay.pages[0], over=True)
+
+            writer.remove_annotations(subtypes="/Widget")
+            if "/AcroForm" in writer.root_object:
+                del writer.root_object["/AcroForm"]
 
             buffer = io.BytesIO()
             writer.write(buffer)
@@ -220,7 +240,7 @@ class SaleViewSet(viewsets.ModelViewSet):
             return FileResponse(
                 buffer,
                 as_attachment=True,
-                filename=f"Bill_Of_Sale_{sale.id}.pdf",
+                filename=f"Bill_Of_Sale_{sale.client.first_name}_{sale.client.last_name}.pdf",
                 content_type='application/pdf'
             )
 
@@ -228,8 +248,10 @@ class SaleViewSet(viewsets.ModelViewSet):
             return Response({"error": "PDF Template file not found on server."},
                             status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+
+# ==================== 6. Auth - Registration ====================
 class RegisterView(generics.CreateAPIView):
+    """User registration endpoint (public)"""
     queryset = User.objects.all()
     permission_classes = (AllowAny,)
     serializer_class = RegisterSerializer
-
