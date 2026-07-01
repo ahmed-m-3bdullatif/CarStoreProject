@@ -9,11 +9,18 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+import os
 from datetime import timedelta
 from pathlib import Path
+
+from dotenv import load_dotenv
 import dj_database_url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(BASE_DIR / '.env')
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -21,12 +28,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-j%p24xrvbf$7)n!$ppk7%^b_0jt1go93$mr0m1@di_chkbny0o'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-j%p24xrvbf$7)n!$ppk7%^b_0jt1go93$mr0m1@di_chkbny0o')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'True').strip().lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = ["*"]
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -77,23 +84,12 @@ TEMPLATES = [
 WSGI_APPLICATION = 'CarStore.wsgi.application'
 
 
-# Database
-# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.postgresql",
-#         "NAME": "CarStore",
-#         "USER": "postgres",
-#         "PASSWORD": "Mountain&Rose",
-#         "HOST": "127.0.0.1",
-#         "PORT": "5432",
-#     }
-# }
-
 DATABASES = {
     "default": dj_database_url.parse(
-        "postgresql://postgres:zYPZqkeabiOYhfcaVXVhITZOfUmosGFh@zephyr.proxy.rlwy.net:13275/railway"
+        os.environ.get(
+            'DATABASE_URL',
+            "postgresql://postgres.dzejodphcuuzmdeswyuw:TeFa%2601227539483@aws-0-eu-west-1.pooler.supabase.com:5432/postgres"
+        )
     )
 }
 
@@ -118,8 +114,8 @@ SPECTACULAR_SETTINGS = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),  
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30), 
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('ACCESS_TOKEN_LIFETIME_DAYS', '1'))),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('REFRESH_TOKEN_LIFETIME_DAYS', '30'))),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
@@ -157,10 +153,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+CORS_ALLOWED_ORIGINS = os.environ.get(
+    'CORS_ALLOWED_ORIGINS',
+    "http://localhost:5173,http://127.0.0.1:5173"
+).split(',')
 
 CORS_ALLOW_CREDENTIALS = True
 

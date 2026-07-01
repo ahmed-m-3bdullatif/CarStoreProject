@@ -43,3 +43,6 @@ typing-inspection
 typing_extensions
 tzdata
 uritemplate
+python-dotenv
+
+
